@@ -587,7 +587,7 @@ function AIFitAssistant({ items }) {
 
       // Web SDK syntax
       const model = genAI.getGenerativeModel({
-        model: "gemini-3.5-flash",
+        model: "gemini-2.5-flash",
       });
       const result = await model.generateContent(fullPrompt);
 
