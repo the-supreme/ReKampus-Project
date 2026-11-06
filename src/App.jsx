@@ -4,7 +4,7 @@ import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { collection, addDoc, getDocs, query, where, updateDoc, doc, serverTimestamp, setDoc, getDoc } from 'firebase/firestore';
 import { uploadImageToCloudinary } from './upload';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { Shirt, ShoppingBag, PlusCircle, LogOut, ShoppingCart, History, Sparkles, Tag, Menu, X } from 'lucide-react';
+import { Shirt, ShoppingBag, PlusCircle, LogOut, ShoppingCart, History, Sparkles, Tag, Menu, X, Search } from 'lucide-react';
 
 const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
 
@@ -16,6 +16,7 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [highlightedItemIds, setHighlightedItemIds] = useState([]);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Set document title
   useEffect(() => {
@@ -105,6 +106,7 @@ export default function App() {
 
   useEffect(() => {
     fetchItems();
+    setSearchQuery(''); // Reset search when changing tabs
   }, [activeTab, role]);
 
   const addToCart = async (itemId) => {
@@ -128,6 +130,20 @@ export default function App() {
     await updateDoc(doc(db, "items", itemId), { status: newStatus });
     fetchItems();
   };
+
+  // Switch tabs safely
+  const changeTab = (tabId) => {
+    setActiveTab(tabId);
+    setHighlightedItemIds([]);
+    setIsMobileMenuOpen(false);
+    setSearchQuery('');
+  };
+
+  // Real-time search filtering
+  const filteredItems = items.filter(item => 
+    item.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    item.description?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   const studentTabs = [
     { id: 'thrift', label: 'Thrift Store', icon: ShoppingBag },
@@ -185,7 +201,7 @@ export default function App() {
                 return (
                   <button 
                     key={tab.id} 
-                    onClick={() => { setActiveTab(tab.id); setHighlightedItemIds([]); }} 
+                    onClick={() => changeTab(tab.id)} 
                     className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${isActive ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
                   >
                     <Icon className="w-4 h-4" /> {tab.label}
@@ -195,7 +211,7 @@ export default function App() {
               {role === 'MODERATOR' && modTabs.map(tab => (
                 <button 
                   key={tab.id} 
-                  onClick={() => setActiveTab(tab.id)} 
+                  onClick={() => changeTab(tab.id)} 
                   className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${activeTab === tab.id ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
                 >
                   {tab.label}
@@ -228,11 +244,7 @@ export default function App() {
                 return (
                   <button 
                     key={tab.id} 
-                    onClick={() => { 
-                      setActiveTab(tab.id); 
-                      setHighlightedItemIds([]); 
-                      setIsMobileMenuOpen(false); 
-                    }} 
+                    onClick={() => changeTab(tab.id)} 
                     className={`flex items-center gap-3 w-full px-3 py-3 rounded-lg text-base font-semibold transition-colors ${isActive ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-50'}`}
                   >
                     {tab.icon && <tab.icon className="w-5 h-5" />}
@@ -253,14 +265,32 @@ export default function App() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         
+        {/* Search Bar (Shows on all Grid views) */}
+        {['thrift', 'cart', 'purchases', 'my_listings', 'pending', 'manage_gear', 'gear_hub'].includes(activeTab) && (
+          <div className="mb-6 max-w-md">
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Search className="h-5 w-5 text-slate-400" />
+              </div>
+              <input
+                type="text"
+                placeholder="Search items by name or description..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all text-sm"
+              />
+            </div>
+          </div>
+        )}
+
         {/* Standard Grid Views (Thrift, Cart, Purchases, Sales, Pending Approval) */}
         {(activeTab === 'thrift' || activeTab === 'cart' || activeTab === 'purchases' || activeTab === 'my_listings' || activeTab === 'pending' || activeTab === 'manage_gear') && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {loading ? (
               <p className="col-span-full text-center py-12 text-slate-500">Loading listings...</p>
-            ) : items.length === 0 ? (
-              <p className="col-span-full text-center py-12 text-slate-500 bg-white rounded-xl border border-dashed border-slate-300">No items in this section yet.</p>
-            ) : items.map(item => (
+            ) : filteredItems.length === 0 ? (
+              <p className="col-span-full text-center py-12 text-slate-500 bg-white rounded-xl border border-dashed border-slate-300">No items found.</p>
+            ) : filteredItems.map(item => (
               <div key={item.id} className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow flex flex-col">
                 <img src={item.imageUrl} className="w-full h-48 object-cover" alt={item.title} />
                 <div className="p-4 flex flex-col flex-grow">
@@ -268,6 +298,16 @@ export default function App() {
                     <h3 className="font-bold text-lg text-slate-900 leading-tight">{item.title}</h3>
                     <span className="font-bold text-emerald-600 whitespace-nowrap ml-2">{item.price === 0 ? 'FREE' : `$${item.price}`}</span>
                   </div>
+                  
+                  {/* Render Measurements if they exist */}
+                  {(item.size || item.chestInches || item.waistInches) && (
+                     <div className="flex flex-wrap gap-1 mb-2">
+                       {item.size && <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded uppercase">Size {item.size}</span>}
+                       {item.chestInches && <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded uppercase">Chest {item.chestInches}"</span>}
+                       {item.waistInches && <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded uppercase">Waist {item.waistInches}"</span>}
+                     </div>
+                  )}
+
                   <p className="text-sm text-slate-500 mb-4 line-clamp-2">{item.description}</p>
                   
                   {activeTab === 'cart' && (
@@ -326,13 +366,13 @@ export default function App() {
             <div className="lg:col-span-2">
               <h2 className="text-xl font-bold mb-4 text-slate-800">Available Presentation Gear</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                {items.map(item => {
+                {filteredItems.map(item => {
                   const isHighlighted = highlightedItemIds.includes(item.id);
                   return (
                     <div 
                       key={item.id} 
                       id={`gear-${item.id}`}
-                      className={`bg-white rounded-xl border p-4 transition-all duration-300 relative ${
+                      className={`bg-white rounded-xl border p-4 transition-all duration-300 relative flex flex-col ${
                         isHighlighted 
                           ? 'border-emerald-500 ring-4 ring-emerald-100 shadow-xl scale-[1.02] bg-emerald-50/30' 
                           : 'border-slate-200 shadow-sm hover:shadow-md'
@@ -346,11 +386,16 @@ export default function App() {
                       
                       <img src={item.imageUrl} className="w-full h-40 object-cover rounded-lg mb-4" alt={item.title} />
                       <h3 className="font-bold text-lg text-slate-900 leading-tight">{item.title}</h3>
-                      <p className="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-1 rounded w-fit my-2">
-                        Size: {item.size} • Chest: {item.chestInches}"
-                      </p>
-                      <p className="text-sm text-slate-600 mb-4 line-clamp-2">{item.description}</p>
-                      <button onClick={() => alert(`Reserved! Show this code at the APU Student Hub Desk: ${item.id.slice(0, 6).toUpperCase()}`)} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-lg font-semibold text-sm transition-colors">
+                      
+                      <div className="flex flex-wrap gap-1 my-2">
+                         {item.size && <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded uppercase">Size {item.size}</span>}
+                         {item.chestInches && <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded uppercase">Chest {item.chestInches}"</span>}
+                         {item.waistInches && <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded uppercase">Waist {item.waistInches}"</span>}
+                      </div>
+
+                      <p className="text-sm text-slate-600 mb-4 line-clamp-2 flex-grow">{item.description}</p>
+                      
+                      <button onClick={() => alert(`Reserved! Show this code at the APU Student Hub Desk: ${item.id.slice(0, 6).toUpperCase()}`)} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-lg font-semibold text-sm transition-colors mt-auto">
                         Reserve Gear
                       </button>
                     </div>
@@ -366,7 +411,7 @@ export default function App() {
                 <h3 className="font-bold text-lg text-slate-900">AI Fit Advisor</h3>
               </div>
               <p className="text-xs text-slate-500 mb-4">State your measurements or full outfit requests (blazers, trousers, or combinations). Gemini will find and highlight all matching cards simultaneously.</p>
-              <AIFitAssistant items={items} onHighlightItems={(ids) => setHighlightedItemIds(ids)} />
+              <AIFitAssistant items={filteredItems} onHighlightItems={(ids) => setHighlightedItemIds(ids)} />
             </div>
           </div>
         )}
@@ -388,8 +433,9 @@ function ItemForm({ role, user, setActiveTab }) {
   const [title, setTitle] = useState('');
   const [price, setPrice] = useState('');
   const [description, setDescription] = useState('');
-  const [size, setSize] = useState('M');
-  const [chestInches, setChestInches] = useState('38');
+  const [size, setSize] = useState('');
+  const [chestInches, setChestInches] = useState('');
+  const [waistInches, setWaistInches] = useState('');
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
 
@@ -405,8 +451,9 @@ function ItemForm({ role, user, setActiveTab }) {
         description,
         price: isGear ? 0 : parseFloat(price),
         category: isGear ? 'PRESENTATION_GEAR' : 'THRIFT',
-        size: isGear ? size : null,
-        chestInches: isGear ? parseFloat(chestInches) : null,
+        size: size || null,
+        chestInches: chestInches ? parseFloat(chestInches) : null,
+        waistInches: waistInches ? parseFloat(waistInches) : null,
         imageUrl,
         sellerId: user.uid,
         sellerEmail: user.email,
@@ -435,25 +482,34 @@ function ItemForm({ role, user, setActiveTab }) {
         <textarea placeholder="Describe condition, color, flaws..." required value={description} onChange={e => setDescription(e.target.value)} className="w-full p-3 border border-slate-300 rounded-lg text-sm h-24 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all resize-none" />
       </div>
       
-      {role === 'STUDENT' ? (
+      {role === 'STUDENT' && (
         <div>
           <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">Selling Price (RM)</label>
           <input type="number" placeholder="15.00" required value={price} onChange={e => setPrice(e.target.value)} className="w-full p-3 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all" />
         </div>
-      ) : (
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">Size Tag</label>
-            <select value={size} onChange={e => setSize(e.target.value)} className="w-full p-3 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all">
-              <option>S</option><option>M</option><option>L</option><option>XL</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">Chest (Inches)</label>
-            <input type="number" placeholder="38" required value={chestInches} onChange={e => setChestInches(e.target.value)} className="w-full p-3 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all" />
-          </div>
-        </div>
       )}
+      
+      {/* Optional Clothing Measurements available for both Thrift & Gear */}
+      <div className="grid grid-cols-3 gap-3">
+        <div>
+          <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase tracking-wide">Size (Opt)</label>
+          <select value={size} onChange={e => setSize(e.target.value)} className="w-full p-3 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 outline-none transition-all">
+            <option value="">N/A</option>
+            <option value="S">S</option>
+            <option value="M">M</option>
+            <option value="L">L</option>
+            <option value="XL">XL</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase tracking-wide">Chest in (Opt)</label>
+          <input type="number" placeholder="38" value={chestInches} onChange={e => setChestInches(e.target.value)} className="w-full p-3 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 outline-none transition-all" />
+        </div>
+        <div>
+          <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase tracking-wide">Waist in (Opt)</label>
+          <input type="number" placeholder="32" value={waistInches} onChange={e => setWaistInches(e.target.value)} className="w-full p-3 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 outline-none transition-all" />
+        </div>
+      </div>
       
       <div>
         <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">Upload Photo</label>
@@ -481,6 +537,7 @@ function AIFitAssistant({ items, onHighlightItems }) {
         category: i.category,
         size: i.size, 
         chestInches: i.chestInches,
+        waistInches: i.waistInches,
         description: i.description 
       }));
 
@@ -489,7 +546,7 @@ function AIFitAssistant({ items, onHighlightItems }) {
       Available Inventory: ${JSON.stringify(inventoryData)}.
       
       Instructions:
-      1. If the user asks for a single piece (e.g. blazer or trousers), pick the best matching item.
+      1. If the user asks for a single piece (e.g. blazer or trousers), pick the best matching item based on their waist/chest measurements.
       2. If the user asks for a full outfit (e.g. blazer + pants, blouse + skirt), pick all matching pieces that form the complete look.
       
       Return a RAW JSON object ONLY (no markdown formatting, no code fences):
@@ -498,7 +555,7 @@ function AIFitAssistant({ items, onHighlightItems }) {
         "explanation": "Short summary of why these pieces fit and look great together."
       }`;
       
-      const model = genAI.getGenerativeModel({ model: 'gemini-3.5-flash' });
+      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
       const result = await model.generateContent(fullPrompt);
       
       const text = result.response.text().replace(/```json|```/g, '').trim();
@@ -529,7 +586,7 @@ function AIFitAssistant({ items, onHighlightItems }) {
       <textarea 
         value={prompt} 
         onChange={e => setPrompt(e.target.value)} 
-        placeholder="E.g., I need a full suit for presentation: 38-inch chest blazer and matching trousers." 
+        placeholder="E.g., I need a full suit for presentation: 38-inch chest blazer and 32-inch waist trousers." 
         className="w-full p-3 border border-slate-300 rounded-lg text-sm h-24 focus:ring-2 focus:ring-emerald-500 outline-none resize-none transition-all" 
       />
       <button 
