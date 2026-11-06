@@ -4,9 +4,16 @@ import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { collection, addDoc, getDocs, query, where, updateDoc, doc, serverTimestamp, setDoc, getDoc } from 'firebase/firestore';
 import { uploadImageToCloudinary } from './upload';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { Shirt, ShoppingBag, PlusCircle, LogOut, ShoppingCart, History, Sparkles, Tag, Menu, X, Search } from 'lucide-react';
+import { Shirt, ShoppingBag, PlusCircle, LogOut, ShoppingCart, History, Sparkles, Tag, Menu, X, Search, Filter } from 'lucide-react';
 
 const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
+
+const CATEGORIES = [
+  "Electronics & Gadgets", "Clothing & Apparel", "Textbooks & Notes",
+  "Dorm Essentials", "Beauty & Personal Care", "Sports & Outdoors",
+  "Shoes & Footwear", "Bags & Accessories", "Stationery & Supplies",
+  "Video Games & Consoles", "Musical Instruments", "Collectibles & Toys", "Others"
+];
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -17,8 +24,12 @@ export default function App() {
   const [highlightedItemIds, setHighlightedItemIds] = useState([]);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [expandedCardId, setExpandedCardId] = useState(null);
+  
+  // Filtering states
+  const [categoryFilter, setCategoryFilter] = useState('All');
+  const [priceFilter, setPriceFilter] = useState('All');
 
-  // Set document title
   useEffect(() => {
     document.title = "ReKampus";
   }, []);
@@ -106,7 +117,7 @@ export default function App() {
 
   useEffect(() => {
     fetchItems();
-    setSearchQuery(''); // Reset search when changing tabs
+    setSearchQuery(''); 
   }, [activeTab, role]);
 
   const addToCart = async (itemId) => {
@@ -131,19 +142,32 @@ export default function App() {
     fetchItems();
   };
 
-  // Switch tabs safely
   const changeTab = (tabId) => {
     setActiveTab(tabId);
     setHighlightedItemIds([]);
     setIsMobileMenuOpen(false);
     setSearchQuery('');
+    setCategoryFilter('All');
+    setPriceFilter('All');
+    setExpandedCardId(null);
   };
 
-  // Real-time search filtering
-  const filteredItems = items.filter(item => 
-    item.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    item.description?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Comprehensive Filtering
+  const filteredItems = items.filter(item => {
+    const matchesSearch = (item.title?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                           item.description?.toLowerCase().includes(searchQuery.toLowerCase()));
+                           
+    const matchesCategory = categoryFilter === 'All' || item.itemCategory === categoryFilter;
+    
+    let matchesPrice = true;
+    if (priceFilter === 'Free') matchesPrice = item.price === 0;
+    else if (priceFilter === 'Under RM 20') matchesPrice = item.price > 0 && item.price < 20;
+    else if (priceFilter === 'RM 20 - RM 50') matchesPrice = item.price >= 20 && item.price <= 50;
+    else if (priceFilter === 'RM 50 - RM 100') matchesPrice = item.price > 50 && item.price <= 100;
+    else if (priceFilter === 'Over RM 100') matchesPrice = item.price > 100;
+
+    return matchesSearch && matchesCategory && matchesPrice;
+  });
 
   const studentTabs = [
     { id: 'thrift', label: 'Thrift Store', icon: ShoppingBag },
@@ -180,12 +204,9 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* Full-Width Dynamic Responsive Header */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            
-            {/* Logo */}
             <div className="flex items-center gap-2 flex-shrink-0">
               <Shirt className="w-7 h-7 text-emerald-600" />
               <span className="font-bold text-xl text-slate-900 tracking-tight">
@@ -193,7 +214,6 @@ export default function App() {
               </span>
             </div>
 
-            {/* Desktop Navigation */}
             <nav className="hidden md:flex flex-1 justify-center space-x-1 px-4">
               {role === 'STUDENT' && studentTabs.map(tab => {
                 const Icon = tab.icon;
@@ -219,7 +239,6 @@ export default function App() {
               ))}
             </nav>
 
-            {/* User Profile & Mobile Menu Toggle */}
             <div className="flex items-center gap-3 flex-shrink-0">
               <span className="text-sm font-medium text-slate-600 hidden lg:inline">{user.email}</span>
               <button onClick={() => signOut(auth)} className="hidden md:flex p-2 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-full transition" title="Sign Out">
@@ -235,7 +254,6 @@ export default function App() {
           </div>
         </div>
 
-        {/* Mobile Navigation Dropdown */}
         {isMobileMenuOpen && (
           <div className="md:hidden bg-white border-t border-slate-100 shadow-lg absolute w-full left-0 z-40">
             <div className="px-4 py-3 space-y-1">
@@ -265,10 +283,11 @@ export default function App() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         
-        {/* Search Bar (Shows on all Grid views) */}
+        {/* Unified Search & Filters */}
         {['thrift', 'cart', 'purchases', 'my_listings', 'pending', 'manage_gear', 'gear_hub'].includes(activeTab) && (
-          <div className="mb-6 max-w-md">
-            <div className="relative">
+          <div className="mb-6 flex flex-col md:flex-row gap-3">
+            
+            <div className="relative flex-grow max-w-md">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <Search className="h-5 w-5 text-slate-400" />
               </div>
@@ -280,87 +299,136 @@ export default function App() {
                 className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all text-sm"
               />
             </div>
+
+            {/* Render Category & Price dropdowns only on Thrift Store */}
+            {activeTab === 'thrift' && (
+              <div className="flex gap-2">
+                <div className="relative">
+                  <select 
+                    value={categoryFilter} 
+                    onChange={(e) => setCategoryFilter(e.target.value)} 
+                    className="appearance-none pl-4 pr-10 py-2.5 bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-medium text-slate-700 cursor-pointer h-full"
+                  >
+                    <option value="All">All Categories</option>
+                    {CATEGORIES.map(cat => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
+                  <Filter className="absolute right-3 top-3 h-4 w-4 text-slate-400 pointer-events-none" />
+                </div>
+
+                <div className="relative">
+                  <select 
+                    value={priceFilter} 
+                    onChange={(e) => setPriceFilter(e.target.value)} 
+                    className="appearance-none pl-4 pr-8 py-2.5 bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-medium text-slate-700 cursor-pointer h-full"
+                  >
+                    <option value="All">All Prices</option>
+                    <option value="Free">Free (RM 0)</option>
+                    <option value="Under RM 20">Under RM 20</option>
+                    <option value="RM 20 - RM 50">RM 20 - RM 50</option>
+                    <option value="RM 50 - RM 100">RM 50 - RM 100</option>
+                    <option value="Over RM 100">Over RM 100</option>
+                  </select>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
-        {/* Standard Grid Views (Thrift, Cart, Purchases, Sales, Pending Approval) */}
+        {/* Standard Grid Views */}
         {(activeTab === 'thrift' || activeTab === 'cart' || activeTab === 'purchases' || activeTab === 'my_listings' || activeTab === 'pending' || activeTab === 'manage_gear') && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {loading ? (
               <p className="col-span-full text-center py-12 text-slate-500">Loading listings...</p>
             ) : filteredItems.length === 0 ? (
-              <p className="col-span-full text-center py-12 text-slate-500 bg-white rounded-xl border border-dashed border-slate-300">No items found.</p>
-            ) : filteredItems.map(item => (
-              <div key={item.id} className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow flex flex-col">
-                <img src={item.imageUrl} className="w-full h-48 object-cover" alt={item.title} />
-                <div className="p-4 flex flex-col flex-grow">
-                  <div className="flex justify-between items-start mb-2">
-                    <h3 className="font-bold text-lg text-slate-900 leading-tight">{item.title}</h3>
-                    <span className="font-bold text-emerald-600 whitespace-nowrap ml-2">{item.price === 0 ? 'FREE' : `$${item.price}`}</span>
-                  </div>
-                  
-                  {/* Render Measurements if they exist */}
-                  {(item.size || item.chestInches || item.waistInches) && (
-                     <div className="flex flex-wrap gap-1 mb-2">
-                       {item.size && <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded uppercase">Size {item.size}</span>}
-                       {item.chestInches && <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded uppercase">Chest {item.chestInches}"</span>}
-                       {item.waistInches && <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded uppercase">Waist {item.waistInches}"</span>}
-                     </div>
-                  )}
-
-                  <p className="text-sm text-slate-500 mb-4 line-clamp-2">{item.description}</p>
-                  
-                  {activeTab === 'cart' && (
-                    <div className="mt-auto flex flex-col gap-2">
-                      <button onClick={() => alert(`Contact seller to pay & collect: ${item.sellerEmail}`)} className="w-full bg-emerald-50 text-emerald-700 py-2 rounded-lg font-semibold text-sm hover:bg-emerald-100 transition-colors">Contact Seller</button>
-                      <button onClick={() => markAsPurchased(item.id)} className="w-full bg-emerald-600 text-white py-2 rounded-lg font-semibold text-sm hover:bg-emerald-700 transition-colors">Mark as Bought</button>
+              <p className="col-span-full text-center py-12 text-slate-500 bg-white rounded-xl border border-dashed border-slate-300">No items found matching your filters.</p>
+            ) : filteredItems.map(item => {
+              const isExpanded = expandedCardId === item.id;
+              const hasLongDescription = item.description?.length > 90;
+              
+              return (
+                <div 
+                  key={item.id} 
+                  onClick={() => setExpandedCardId(isExpanded ? null : item.id)}
+                  className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow flex flex-col cursor-pointer group"
+                >
+                  <img src={item.imageUrl} className="w-full h-48 object-cover group-hover:opacity-95 transition-opacity" alt={item.title} />
+                  <div className="p-4 flex flex-col flex-grow">
+                    <div className="flex justify-between items-start mb-2">
+                      <h3 className="font-bold text-lg text-slate-900 leading-tight">{item.title}</h3>
+                      <span className="font-bold text-emerald-600 whitespace-nowrap ml-2">{item.price === 0 ? 'FREE' : `RM ${item.price}`}</span>
                     </div>
-                  )}
+                    
+                    <div className="flex flex-wrap gap-1 mb-2">
+                      {item.itemCategory && <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded uppercase">{item.itemCategory}</span>}
+                      {item.size && <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded uppercase">Size {item.size}</span>}
+                      {item.chestInches && <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded uppercase">Chest {item.chestInches}"</span>}
+                      {item.waistInches && <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded uppercase">Waist {item.waistInches}"</span>}
+                    </div>
 
-                  {activeTab === 'thrift' && (
-                    <button onClick={() => addToCart(item.id)} className="mt-auto w-full bg-slate-900 text-white py-2.5 rounded-lg font-semibold text-sm hover:bg-slate-800 transition-colors">Add to Cart</button>
-                  )}
-
-                  {activeTab === 'my_listings' && (
-                    <div className="mt-auto pt-3 border-t border-slate-100 flex flex-col gap-2">
-                      <div className="flex justify-between items-center text-xs">
-                        <span className="font-medium text-slate-500">Status:</span>
-                        <span className={`font-semibold px-2 py-0.5 rounded ${item.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-700' : item.status === 'SOLD' ? 'bg-slate-200 text-slate-700' : item.status === 'REJECTED' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
-                          {item.status}
-                        </span>
+                    <p className={`text-sm text-slate-600 transition-all duration-300 ${isExpanded ? 'whitespace-pre-wrap mb-1' : 'line-clamp-2 mb-1'}`}>
+                      {item.description}
+                    </p>
+                    {hasLongDescription && (
+                      <span className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 mb-4 block">
+                        {isExpanded ? 'Show less' : 'Read more'}
+                      </span>
+                    )}
+                    {!hasLongDescription && <div className="mb-4"></div>}
+                    
+                    {activeTab === 'cart' && (
+                      <div className="mt-auto flex flex-col gap-2">
+                        <button onClick={(e) => { e.stopPropagation(); alert(`Contact seller to pay & collect: ${item.sellerEmail}`); }} className="w-full bg-emerald-50 text-emerald-700 py-2 rounded-lg font-semibold text-sm hover:bg-emerald-100 transition-colors">Contact Seller</button>
+                        <button onClick={(e) => { e.stopPropagation(); markAsPurchased(item.id); }} className="w-full bg-emerald-600 text-white py-2 rounded-lg font-semibold text-sm hover:bg-emerald-700 transition-colors">Mark as Bought</button>
                       </div>
-                      {item.status === 'SOLD' && (
-                        <div className="bg-slate-50 p-2 rounded-lg text-xs text-slate-600 border border-slate-100">
-                          <strong>Purchased by:</strong> {item.buyerEmail || 'Campus Student'}
+                    )}
+
+                    {activeTab === 'thrift' && (
+                      <button onClick={(e) => { e.stopPropagation(); addToCart(item.id); }} className="mt-auto w-full bg-slate-900 text-white py-2.5 rounded-lg font-semibold text-sm hover:bg-slate-800 transition-colors">Add to Cart</button>
+                    )}
+
+                    {activeTab === 'my_listings' && (
+                      <div className="mt-auto pt-3 border-t border-slate-100 flex flex-col gap-2" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="font-medium text-slate-500">Status:</span>
+                          <span className={`font-semibold px-2 py-0.5 rounded ${item.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-700' : item.status === 'SOLD' ? 'bg-slate-200 text-slate-700' : item.status === 'REJECTED' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
+                            {item.status}
+                          </span>
                         </div>
-                      )}
-                    </div>
-                  )}
+                        {item.status === 'SOLD' && (
+                          <div className="bg-slate-50 p-2 rounded-lg text-xs text-slate-600 border border-slate-100">
+                            <strong>Purchased by:</strong> {item.buyerEmail || 'Campus Student'}
+                          </div>
+                        )}
+                      </div>
+                    )}
 
-                  {role === 'MODERATOR' && activeTab === 'pending' && (
-                    <div className="mt-auto flex gap-2">
-                      <button onClick={() => updateItemStatus(item.id, 'APPROVED')} className="flex-1 bg-emerald-600 text-white py-2 rounded-lg font-semibold text-sm hover:bg-emerald-700 transition-colors">Approve</button>
-                      <button onClick={() => updateItemStatus(item.id, 'REJECTED')} className="flex-1 bg-red-600 text-white py-2 rounded-lg font-semibold text-sm hover:bg-red-700 transition-colors">Reject</button>
-                    </div>
-                  )}
+                    {role === 'MODERATOR' && activeTab === 'pending' && (
+                      <div className="mt-auto flex gap-2">
+                        <button onClick={(e) => { e.stopPropagation(); updateItemStatus(item.id, 'APPROVED'); }} className="flex-1 bg-emerald-600 text-white py-2 rounded-lg font-semibold text-sm hover:bg-emerald-700 transition-colors">Approve</button>
+                        <button onClick={(e) => { e.stopPropagation(); updateItemStatus(item.id, 'REJECTED'); }} className="flex-1 bg-red-600 text-white py-2 rounded-lg font-semibold text-sm hover:bg-red-700 transition-colors">Reject</button>
+                      </div>
+                    )}
 
-                  {role === 'MODERATOR' && activeTab === 'manage_gear' && (
-                    <div className="mt-auto">
-                      <p className="text-xs mb-2 font-semibold text-slate-500">Status: {item.status}</p>
-                      {item.status === 'AVAILABLE' ? (
-                        <button onClick={() => updateItemStatus(item.id, 'BORROWED')} className="w-full bg-amber-500 text-white py-2 rounded-lg font-semibold text-sm hover:bg-amber-600 transition-colors">Mark as Borrowed</button>
-                      ) : (
-                        <button onClick={() => updateItemStatus(item.id, 'AVAILABLE')} className="w-full bg-emerald-500 text-white py-2 rounded-lg font-semibold text-sm hover:bg-emerald-600 transition-colors">Mark as Returned</button>
-                      )}
-                    </div>
-                  )}
+                    {role === 'MODERATOR' && activeTab === 'manage_gear' && (
+                      <div className="mt-auto">
+                        <p className="text-xs mb-2 font-semibold text-slate-500">Status: {item.status}</p>
+                        {item.status === 'AVAILABLE' ? (
+                          <button onClick={(e) => { e.stopPropagation(); updateItemStatus(item.id, 'BORROWED'); }} className="w-full bg-amber-500 text-white py-2 rounded-lg font-semibold text-sm hover:bg-amber-600 transition-colors">Mark as Borrowed</button>
+                        ) : (
+                          <button onClick={(e) => { e.stopPropagation(); updateItemStatus(item.id, 'AVAILABLE'); }} className="w-full bg-emerald-500 text-white py-2 rounded-lg font-semibold text-sm hover:bg-emerald-600 transition-colors">Mark as Returned</button>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
-        {/* Presentation Gear Hub featuring Multi-Item AI Fit Advisor Target Highlighting */}
+        {/* Presentation Gear Hub */}
         {activeTab === 'gear_hub' && role === 'STUDENT' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2">
@@ -368,11 +436,15 @@ export default function App() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 {filteredItems.map(item => {
                   const isHighlighted = highlightedItemIds.includes(item.id);
+                  const isExpanded = expandedCardId === item.id;
+                  const hasLongDescription = item.description?.length > 90;
+
                   return (
                     <div 
                       key={item.id} 
                       id={`gear-${item.id}`}
-                      className={`bg-white rounded-xl border p-4 transition-all duration-300 relative flex flex-col ${
+                      onClick={() => setExpandedCardId(isExpanded ? null : item.id)}
+                      className={`bg-white rounded-xl border p-4 transition-all duration-300 relative flex flex-col cursor-pointer group ${
                         isHighlighted 
                           ? 'border-emerald-500 ring-4 ring-emerald-100 shadow-xl scale-[1.02] bg-emerald-50/30' 
                           : 'border-slate-200 shadow-sm hover:shadow-md'
@@ -384,7 +456,7 @@ export default function App() {
                         </span>
                       )}
                       
-                      <img src={item.imageUrl} className="w-full h-40 object-cover rounded-lg mb-4" alt={item.title} />
+                      <img src={item.imageUrl} className="w-full h-40 object-cover rounded-lg mb-4 group-hover:opacity-95 transition-opacity" alt={item.title} />
                       <h3 className="font-bold text-lg text-slate-900 leading-tight">{item.title}</h3>
                       
                       <div className="flex flex-wrap gap-1 my-2">
@@ -393,9 +465,20 @@ export default function App() {
                          {item.waistInches && <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded uppercase">Waist {item.waistInches}"</span>}
                       </div>
 
-                      <p className="text-sm text-slate-600 mb-4 line-clamp-2 flex-grow">{item.description}</p>
+                      <p className={`text-sm text-slate-600 transition-all duration-300 ${isExpanded ? 'whitespace-pre-wrap mb-1' : 'line-clamp-2 mb-1'}`}>
+                        {item.description}
+                      </p>
+                      {hasLongDescription && (
+                        <span className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 mb-4 block">
+                          {isExpanded ? 'Show less' : 'Read more'}
+                        </span>
+                      )}
+                      {!hasLongDescription && <div className="mb-4 flex-grow"></div>}
                       
-                      <button onClick={() => alert(`Reserved! Show this code at the APU Student Hub Desk: ${item.id.slice(0, 6).toUpperCase()}`)} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-lg font-semibold text-sm transition-colors mt-auto">
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); alert(`Reserved! Show this code at the APU Student Hub Desk: ${item.id.slice(0, 6).toUpperCase()}`); }} 
+                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-lg font-semibold text-sm transition-colors mt-auto"
+                      >
                         Reserve Gear
                       </button>
                     </div>
@@ -404,7 +487,6 @@ export default function App() {
               </div>
             </div>
             
-            {/* AI Advisor Panel */}
             <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm h-fit sticky top-24">
               <div className="flex items-center gap-2 mb-3 text-emerald-600">
                 <Sparkles className="w-6 h-6" />
@@ -416,7 +498,6 @@ export default function App() {
           </div>
         )}
 
-        {/* Sell / Add Gear Form */}
         {(activeTab === 'add_listing' || activeTab === 'add_gear') && (
           <ItemForm role={role} user={user} setActiveTab={setActiveTab} />
         )}
@@ -425,14 +506,11 @@ export default function App() {
   );
 }
 
-// ---------------------------------------------------------
-// Sub-components: ItemForm & Multi-Item AI Fit Assistant
-// ---------------------------------------------------------
-
 function ItemForm({ role, user, setActiveTab }) {
   const [title, setTitle] = useState('');
   const [price, setPrice] = useState('');
   const [description, setDescription] = useState('');
+  const [itemCategory, setItemCategory] = useState(CATEGORIES[0]);
   const [size, setSize] = useState('');
   const [chestInches, setChestInches] = useState('');
   const [waistInches, setWaistInches] = useState('');
@@ -451,6 +529,7 @@ function ItemForm({ role, user, setActiveTab }) {
         description,
         price: isGear ? 0 : parseFloat(price),
         category: isGear ? 'PRESENTATION_GEAR' : 'THRIFT',
+        itemCategory: isGear ? null : itemCategory,
         size: size || null,
         chestInches: chestInches ? parseFloat(chestInches) : null,
         waistInches: waistInches ? parseFloat(waistInches) : null,
@@ -477,19 +556,29 @@ function ItemForm({ role, user, setActiveTab }) {
         <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">Item Title</label>
         <input type="text" placeholder="Calculus Textbook / Slim Fit Blazer" required value={title} onChange={e => setTitle(e.target.value)} className="w-full p-3 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all" />
       </div>
+
+      {role === 'STUDENT' && (
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">Category</label>
+            <select value={itemCategory} onChange={e => setItemCategory(e.target.value)} className="w-full p-3 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 outline-none transition-all bg-white">
+              {CATEGORIES.map(cat => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">Selling Price (RM)</label>
+            <input type="number" placeholder="15.00" required value={price} onChange={e => setPrice(e.target.value)} className="w-full p-3 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all" />
+          </div>
+        </div>
+      )}
+
       <div>
         <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">Description</label>
         <textarea placeholder="Describe condition, color, flaws..." required value={description} onChange={e => setDescription(e.target.value)} className="w-full p-3 border border-slate-300 rounded-lg text-sm h-24 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all resize-none" />
       </div>
       
-      {role === 'STUDENT' && (
-        <div>
-          <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">Selling Price (RM)</label>
-          <input type="number" placeholder="15.00" required value={price} onChange={e => setPrice(e.target.value)} className="w-full p-3 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all" />
-        </div>
-      )}
-      
-      {/* Optional Clothing Measurements available for both Thrift & Gear */}
       <div className="grid grid-cols-3 gap-3">
         <div>
           <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase tracking-wide">Size (Opt)</label>
