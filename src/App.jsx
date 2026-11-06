@@ -441,7 +441,7 @@ function AIFitAssistant({ items, onHighlightItems }) {
         "explanation": "Short summary of why these pieces fit and look great together."
       }`;
       
-      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+      const model = genAI.getGenerativeModel({ model: 'gemini-3.5-flash' });
       const result = await model.generateContent(fullPrompt);
       
       const text = result.response.text().replace(/```json|```/g, '').trim();
