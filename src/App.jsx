@@ -147,7 +147,7 @@ export default function App() {
       <header className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between sticky top-0 z-10">
         <div className="flex items-center gap-2">
           <Shirt className="w-7 h-7 text-indigo-600" />
-          <span className="font-bold text-xl">Campus Hub <span className="text-xs bg-indigo-100 text-indigo-800 px-2.5 py-1 rounded-full font-semibold ml-2">{role}</span></span>
+          <span className="font-bold text-xl">ReKampus <span className="text-xs bg-indigo-100 text-indigo-800 px-2.5 py-1 rounded-full font-semibold ml-2">{role}</span></span>
         </div>
         <div className="flex items-center gap-4">
           <span className="text-sm font-medium text-slate-600 hidden sm:inline">{user.email}</span>
@@ -165,7 +165,7 @@ export default function App() {
               { id: 'cart', label: 'Cart', icon: ShoppingCart },
               { id: 'my_listings', label: 'My Sales & Listings', icon: Tag },
               { id: 'purchases', label: 'Purchases', icon: History },
-              { id: 'add_listing', label: '+ Sell Item', icon: PlusCircle }
+              { id: 'add_listing', label: 'Sell Item', icon: PlusCircle }
             ].map(tab => {
               const Icon = tab.icon;
               return (
