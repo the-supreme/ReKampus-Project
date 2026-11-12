@@ -15,6 +15,12 @@ const CATEGORIES = [
   "Video Games & Consoles", "Musical Instruments", "Collectibles & Toys", "Others"
 ];
 
+const SCHOOL_FIELDS = [
+  "Computer Science & IT", "Engineering & Robotics", "Business & Finance",
+  "Media & Communication", "Art, Design & Animation", "Music & Performing Arts",
+  "Medicine & Healthcare", "Law & Legal Studies", "Architecture", "Education", "Others"
+];
+
 export default function App() {
   const [user, setUser] = useState(null);
   const [role, setRole] = useState(null);
@@ -28,6 +34,7 @@ export default function App() {
   
   // Filtering states
   const [categoryFilter, setCategoryFilter] = useState('All');
+  const [fieldFilter, setFieldFilter] = useState('All');
   const [priceFilter, setPriceFilter] = useState('All');
 
   useEffect(() => {
@@ -148,6 +155,7 @@ export default function App() {
     setIsMobileMenuOpen(false);
     setSearchQuery('');
     setCategoryFilter('All');
+    setFieldFilter('All');
     setPriceFilter('All');
     setExpandedCardId(null);
   };
@@ -158,6 +166,7 @@ export default function App() {
                            item.description?.toLowerCase().includes(searchQuery.toLowerCase()));
                            
     const matchesCategory = categoryFilter === 'All' || item.itemCategory === categoryFilter;
+    const matchesField = fieldFilter === 'All' || item.schoolField === fieldFilter;
     
     let matchesPrice = true;
     if (priceFilter === 'Free') matchesPrice = item.price === 0;
@@ -166,7 +175,7 @@ export default function App() {
     else if (priceFilter === 'RM 50 - RM 100') matchesPrice = item.price > 50 && item.price <= 100;
     else if (priceFilter === 'Over RM 100') matchesPrice = item.price > 100;
 
-    return matchesSearch && matchesCategory && matchesPrice;
+    return matchesSearch && matchesCategory && matchesField && matchesPrice;
   });
 
   const studentTabs = [
@@ -300,14 +309,14 @@ export default function App() {
               />
             </div>
 
-            {/* Render Category & Price dropdowns only on Thrift Store */}
+            {/* Render Filters only on Thrift Store */}
             {activeTab === 'thrift' && (
-              <div className="flex gap-2">
-                <div className="relative">
+              <div className="flex flex-wrap gap-2">
+                <div className="relative flex-grow sm:flex-none">
                   <select 
                     value={categoryFilter} 
                     onChange={(e) => setCategoryFilter(e.target.value)} 
-                    className="appearance-none pl-4 pr-10 py-2.5 bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-medium text-slate-700 cursor-pointer h-full"
+                    className="appearance-none pl-4 pr-10 py-2.5 w-full bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-medium text-slate-700 cursor-pointer h-full"
                   >
                     <option value="All">All Categories</option>
                     {CATEGORIES.map(cat => (
@@ -317,19 +326,34 @@ export default function App() {
                   <Filter className="absolute right-3 top-3 h-4 w-4 text-slate-400 pointer-events-none" />
                 </div>
 
-                <div className="relative">
+                <div className="relative flex-grow sm:flex-none">
+                  <select 
+                    value={fieldFilter} 
+                    onChange={(e) => setFieldFilter(e.target.value)} 
+                    className="appearance-none pl-4 pr-10 py-2.5 w-full bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-medium text-slate-700 cursor-pointer h-full"
+                  >
+                    <option value="All">All Fields</option>
+                    {SCHOOL_FIELDS.map(f => (
+                      <option key={f} value={f}>{f}</option>
+                    ))}
+                  </select>
+                  <Filter className="absolute right-3 top-3 h-4 w-4 text-slate-400 pointer-events-none" />
+                </div>
+
+                <div className="relative flex-grow sm:flex-none">
                   <select 
                     value={priceFilter} 
                     onChange={(e) => setPriceFilter(e.target.value)} 
-                    className="appearance-none pl-4 pr-8 py-2.5 bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-medium text-slate-700 cursor-pointer h-full"
+                    className="appearance-none pl-4 pr-10 py-2.5 w-full bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-medium text-slate-700 cursor-pointer h-full"
                   >
                     <option value="All">All Prices</option>
-                    <option value="Free">Free (RM 0)</option>
+                    <option value="Free">Free (Donations)</option>
                     <option value="Under RM 20">Under RM 20</option>
                     <option value="RM 20 - RM 50">RM 20 - RM 50</option>
                     <option value="RM 50 - RM 100">RM 50 - RM 100</option>
                     <option value="Over RM 100">Over RM 100</option>
                   </select>
+                  <Filter className="absolute right-3 top-3 h-4 w-4 text-slate-400 pointer-events-none" />
                 </div>
               </div>
             )}
@@ -356,12 +380,15 @@ export default function App() {
                   <img src={item.imageUrl} className="w-full h-48 object-cover group-hover:opacity-95 transition-opacity" alt={item.title} />
                   <div className="p-4 flex flex-col flex-grow">
                     <div className="flex justify-between items-start mb-2">
-                      <h3 className="font-bold text-lg text-slate-900 leading-tight">{item.title}</h3>
-                      <span className="font-bold text-emerald-600 whitespace-nowrap ml-2">{item.price === 0 ? 'FREE' : `RM ${item.price}`}</span>
+                      <h3 className="font-bold text-lg text-slate-900 leading-tight pr-2">{item.title}</h3>
+                      <span className={`font-bold whitespace-nowrap ml-2 ${item.price === 0 ? 'text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100 text-sm' : 'text-emerald-600'}`}>
+                        {item.price === 0 ? 'FREE' : `RM ${item.price}`}
+                      </span>
                     </div>
                     
                     <div className="flex flex-wrap gap-1 mb-2">
                       {item.itemCategory && <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded uppercase">{item.itemCategory}</span>}
+                      {item.schoolField && <span className="text-[10px] font-bold text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded uppercase">{item.schoolField}</span>}
                       {item.size && <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded uppercase">Size {item.size}</span>}
                       {item.chestInches && <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded uppercase">Chest {item.chestInches}"</span>}
                       {item.waistInches && <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded uppercase">Waist {item.waistInches}"</span>}
@@ -511,6 +538,7 @@ function ItemForm({ role, user, setActiveTab }) {
   const [price, setPrice] = useState('');
   const [description, setDescription] = useState('');
   const [itemCategory, setItemCategory] = useState(CATEGORIES[0]);
+  const [schoolField, setSchoolField] = useState('');
   const [size, setSize] = useState('');
   const [chestInches, setChestInches] = useState('');
   const [waistInches, setWaistInches] = useState('');
@@ -524,12 +552,16 @@ function ItemForm({ role, user, setActiveTab }) {
       const imageUrl = await uploadImageToCloudinary(file);
       const isGear = role === 'MODERATOR';
       
+      // If price is left empty or invalid, fallback to 0 (Free/Donation)
+      const parsedPrice = parseFloat(price) || 0; 
+      
       await addDoc(collection(db, "items"), {
         title,
         description,
-        price: isGear ? 0 : parseFloat(price),
+        price: isGear ? 0 : parsedPrice,
         category: isGear ? 'PRESENTATION_GEAR' : 'THRIFT',
         itemCategory: isGear ? null : itemCategory,
+        schoolField: schoolField || null,
         size: size || null,
         chestInches: chestInches ? parseFloat(chestInches) : null,
         waistInches: waistInches ? parseFloat(waistInches) : null,
@@ -550,7 +582,7 @@ function ItemForm({ role, user, setActiveTab }) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="max-w-lg mx-auto bg-white p-6 md:p-8 rounded-xl border border-slate-200 shadow-sm space-y-5">
+    <form onSubmit={handleSubmit} className="max-w-xl mx-auto bg-white p-6 md:p-8 rounded-xl border border-slate-200 shadow-sm space-y-5">
       <h2 className="text-2xl font-bold text-slate-800 mb-2">{role === 'MODERATOR' ? 'Add Presentation Gear' : 'List Secondhand Item'}</h2>
       <div>
         <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">Item Title</label>
@@ -558,7 +590,7 @@ function ItemForm({ role, user, setActiveTab }) {
       </div>
 
       {role === 'STUDENT' && (
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">Category</label>
             <select value={itemCategory} onChange={e => setItemCategory(e.target.value)} className="w-full p-3 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 outline-none transition-all bg-white">
@@ -568,8 +600,18 @@ function ItemForm({ role, user, setActiveTab }) {
             </select>
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">Selling Price (RM)</label>
-            <input type="number" placeholder="15.00" required value={price} onChange={e => setPrice(e.target.value)} className="w-full p-3 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all" />
+            <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">Field (Opt)</label>
+            <select value={schoolField} onChange={e => setSchoolField(e.target.value)} className="w-full p-3 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 outline-none transition-all bg-white">
+              <option value="">General / Any</option>
+              {SCHOOL_FIELDS.map(f => (
+                <option key={f} value={f}>{f}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">Price (RM)</label>
+            {/* Removed the 'required' attribute so students can easily donate */}
+            <input type="number" min="0" step="0.01" placeholder="Empty = FREE" value={price} onChange={e => setPrice(e.target.value)} className="w-full p-3 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all" />
           </div>
         </div>
       )}
@@ -627,6 +669,7 @@ function AIFitAssistant({ items, onHighlightItems }) {
         size: i.size, 
         chestInches: i.chestInches,
         waistInches: i.waistInches,
+        schoolField: i.schoolField,
         description: i.description 
       }));
 
