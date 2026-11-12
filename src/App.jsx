@@ -216,10 +216,10 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-50 relative">
       
-      {/* Global Blur Backdrop for when any card is expanded */}
+      {/* Invisible Click-to-Close Layer */}
       {expandedCardId && (
         <div 
-          className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-sm transition-all" 
+          className="fixed inset-0 z-40" 
           onClick={() => setExpandedCardId(null)}
         />
       )}
@@ -470,7 +470,6 @@ export default function App() {
                 </div>
               );
               
-              // THIS IS THE FIX: The expanded item gets z-50 so it jumps above the z-40 blur layer
               return (
                 <div key={item.id} className={`relative h-full ${isExpanded ? 'z-50' : 'z-0'}`}>
                   {renderCard(false)}
@@ -549,7 +548,6 @@ export default function App() {
                     </div>
                   );
 
-                  // FIX: Expanded item gets z-50 to break through the blur
                   return (
                     <div key={item.id} className={`relative h-full ${isExpanded ? 'z-50' : 'z-0'}`}>
                       {renderGearCard(false)}
