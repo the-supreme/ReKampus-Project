@@ -21,6 +21,10 @@ const SCHOOL_FIELDS = [
   "Medicine & Healthcare", "Law & Legal Studies", "Architecture", "Education", "Others"
 ];
 
+const CONDITIONS = [
+  "Brand New", "Like New", "Excellent", "Good", "Fair"
+];
+
 export default function App() {
   const [user, setUser] = useState(null);
   const [role, setRole] = useState(null);
@@ -387,6 +391,7 @@ export default function App() {
                     </div>
                     
                     <div className="flex flex-wrap gap-1 mb-2">
+                      {item.condition && <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded uppercase">{item.condition}</span>}
                       {item.itemCategory && <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded uppercase">{item.itemCategory}</span>}
                       {item.schoolField && <span className="text-[10px] font-bold text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded uppercase">{item.schoolField}</span>}
                       {item.size && <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded uppercase">Size {item.size}</span>}
@@ -487,6 +492,7 @@ export default function App() {
                       <h3 className="font-bold text-lg text-slate-900 leading-tight">{item.title}</h3>
                       
                       <div className="flex flex-wrap gap-1 my-2">
+                         {item.condition && <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded uppercase">{item.condition}</span>}
                          {item.size && <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded uppercase">Size {item.size}</span>}
                          {item.chestInches && <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded uppercase">Chest {item.chestInches}"</span>}
                          {item.waistInches && <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded uppercase">Waist {item.waistInches}"</span>}
@@ -539,6 +545,7 @@ function ItemForm({ role, user, setActiveTab }) {
   const [description, setDescription] = useState('');
   const [itemCategory, setItemCategory] = useState(CATEGORIES[0]);
   const [schoolField, setSchoolField] = useState('');
+  const [condition, setCondition] = useState(CONDITIONS[0]);
   const [size, setSize] = useState('');
   const [chestInches, setChestInches] = useState('');
   const [waistInches, setWaistInches] = useState('');
@@ -552,7 +559,6 @@ function ItemForm({ role, user, setActiveTab }) {
       const imageUrl = await uploadImageToCloudinary(file);
       const isGear = role === 'MODERATOR';
       
-      // If price is left empty or invalid, fallback to 0 (Free/Donation)
       const parsedPrice = parseFloat(price) || 0; 
       
       await addDoc(collection(db, "items"), {
@@ -562,6 +568,7 @@ function ItemForm({ role, user, setActiveTab }) {
         category: isGear ? 'PRESENTATION_GEAR' : 'THRIFT',
         itemCategory: isGear ? null : itemCategory,
         schoolField: schoolField || null,
+        condition: condition,
         size: size || null,
         chestInches: chestInches ? parseFloat(chestInches) : null,
         waistInches: waistInches ? parseFloat(waistInches) : null,
@@ -582,7 +589,7 @@ function ItemForm({ role, user, setActiveTab }) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="max-w-xl mx-auto bg-white p-6 md:p-8 rounded-xl border border-slate-200 shadow-sm space-y-5">
+    <form onSubmit={handleSubmit} className="max-w-2xl mx-auto bg-white p-6 md:p-8 rounded-xl border border-slate-200 shadow-sm space-y-5">
       <h2 className="text-2xl font-bold text-slate-800 mb-2">{role === 'MODERATOR' ? 'Add Presentation Gear' : 'List Secondhand Item'}</h2>
       <div>
         <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">Item Title</label>
@@ -590,7 +597,7 @@ function ItemForm({ role, user, setActiveTab }) {
       </div>
 
       {role === 'STUDENT' && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">Category</label>
             <select value={itemCategory} onChange={e => setItemCategory(e.target.value)} className="w-full p-3 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 outline-none transition-all bg-white">
@@ -609,8 +616,15 @@ function ItemForm({ role, user, setActiveTab }) {
             </select>
           </div>
           <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">Condition</label>
+            <select value={condition} onChange={e => setCondition(e.target.value)} className="w-full p-3 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 outline-none transition-all bg-white">
+              {CONDITIONS.map(c => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </div>
+          <div>
             <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">Price (RM)</label>
-            {/* Removed the 'required' attribute so students can easily donate */}
             <input type="number" min="0" step="0.01" placeholder="Empty = FREE" value={price} onChange={e => setPrice(e.target.value)} className="w-full p-3 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all" />
           </div>
         </div>
@@ -666,6 +680,7 @@ function AIFitAssistant({ items, onHighlightItems }) {
         id: i.id, 
         title: i.title, 
         category: i.category,
+        condition: i.condition,
         size: i.size, 
         chestInches: i.chestInches,
         waistInches: i.waistInches,
