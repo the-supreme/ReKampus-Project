@@ -29,7 +29,7 @@ import {
   Search,
   Filter,
 } from "lucide-react";
-import logo from "./assets/ReKampus Logo(1).png";
+import logo from "./assets/rekampusLogo.png";
 
 const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
 
