@@ -110,13 +110,20 @@ export default function App() {
         } else if (activeTab === 'my_listings') {
           q = query(collection(db, "items"), where("sellerId", "==", user.uid));
         } else if (activeTab === 'purchases') {
-          q = query(collection(db, "items"), where("buyerId", "==", user.uid), where("status", "==", "SOLD"));
+          q = query(collection(db, "items"), where("buyerId", "==", user.uid));
         }
       }
       
       if (q) {
         const snapshot = await getDocs(q);
-        setItems(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+        let fetchedItems = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        
+        // Filter local state to avoid composite index requirements in Firestore
+        if (activeTab === 'purchases') {
+          fetchedItems = fetchedItems.filter(i => ["SOLD", "BORROWED", "RETURN_PENDING", "OVERDUE"].includes(i.status));
+        }
+        
+        setItems(fetchedItems);
       }
     } catch (err) {
       console.error("Fetch error:", err);
@@ -144,6 +151,40 @@ export default function App() {
       cartUserId: null 
     });
     alert("Item marked as purchased! Check your Purchase History.");
+    fetchItems();
+  };
+
+  const reserveGear = async (item) => {
+    const now = new Date();
+    const due = new Date();
+    due.setDate(due.getDate() + 3); // 3-day rental period
+    
+    await updateDoc(doc(db, "items", item.id), { 
+      status: "BORROWED",
+      buyerId: user.uid,
+      buyerEmail: user.email,
+      borrowedAt: now.toISOString(),
+      dueDate: due.toISOString()
+    });
+    alert(`Reserved! Manage this item in your Purchases tab. Show this code at the APU Student Hub Desk: ${item.id.slice(0, 6).toUpperCase()}`);
+    fetchItems();
+  };
+
+  const studentReturnGear = async (itemId) => {
+    await updateDoc(doc(db, "items", itemId), { status: "RETURN_PENDING" });
+    alert("Marked as returned! Waiting for moderator confirmation.");
+    fetchItems();
+  };
+
+  const moderatorConfirmReturn = async (itemId) => {
+    await updateDoc(doc(db, "items", itemId), { 
+      status: "AVAILABLE",
+      buyerId: null,
+      buyerEmail: null,
+      borrowedAt: null,
+      dueDate: null
+    });
+    alert("Gear marked as returned and is now available.");
     fetchItems();
   };
 
@@ -376,7 +417,7 @@ export default function App() {
             {loading ? (
               <p className="col-span-full text-center py-12 text-slate-500">Loading listings...</p>
             ) : filteredItems.length === 0 ? (
-              <p className="col-span-full text-center py-12 text-slate-500 bg-white rounded-xl border border-dashed border-slate-300">No items found matching your filters.</p>
+              <p className="col-span-full text-center py-12 text-slate-500 bg-white rounded-xl border border-dashed border-slate-300">No items found matching your criteria.</p>
             ) : filteredItems.map(item => {
               const isExpanded = expandedCardId === item.id;
               const hasLongDescription = item.description?.length > 90;
@@ -420,21 +461,50 @@ export default function App() {
                     )}
                     {!hasLongDescription && <div className="mb-4 flex-grow"></div>}
                     
-                    <div className="mt-auto pt-3 border-t border-transparent">
+                    <div className="mt-auto pt-3 border-t border-transparent flex flex-col gap-2">
                       {activeTab === 'cart' && (
-                        <div className="flex flex-col gap-2">
+                        <>
                           <button onClick={(e) => { e.stopPropagation(); alert(`Contact seller to pay & collect: ${item.sellerEmail}`); }} className="w-full bg-emerald-50 text-emerald-700 py-2 rounded-lg font-semibold text-sm hover:bg-emerald-100 transition-colors">Contact Seller</button>
                           <button onClick={(e) => { e.stopPropagation(); markAsPurchased(item.id); }} className="w-full bg-emerald-600 text-white py-2 rounded-lg font-semibold text-sm hover:bg-emerald-700 transition-colors">Mark as Bought</button>
-                        </div>
+                        </>
                       )}
 
                       {activeTab === 'thrift' && (
                         <button onClick={(e) => { e.stopPropagation(); addToCart(item.id); }} className="w-full bg-slate-900 text-white py-2.5 rounded-lg font-semibold text-sm hover:bg-slate-800 transition-colors">Add to Cart</button>
                       )}
 
+                      {activeTab === 'purchases' && (
+                        <div onClick={(e) => e.stopPropagation()} className="pt-2 border-t border-slate-100">
+                          {item.category === 'PRESENTATION_GEAR' ? (
+                            <>
+                              <div className="flex justify-between items-center text-xs mb-2">
+                                <span className="font-medium text-slate-500">Rental Status:</span>
+                                <span className={`font-semibold px-2 py-0.5 rounded ${item.status === 'BORROWED' ? 'bg-amber-100 text-amber-700' : item.status === 'OVERDUE' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
+                                  {item.status.replace('_', ' ')}
+                               </span>
+                              </div>
+                              <div className="bg-slate-50 p-2 rounded-lg text-xs text-slate-600 border border-slate-100 mb-2 leading-relaxed">
+                                 <strong>Borrowed:</strong> {item.borrowedAt ? new Date(item.borrowedAt).toLocaleDateString() : 'N/A'}<br/>
+                                 <strong>Return By:</strong> {item.dueDate ? new Date(item.dueDate).toLocaleDateString() : 'N/A'}
+                              </div>
+                              {item.status === 'BORROWED' || item.status === 'OVERDUE' ? (
+                                <button onClick={(e) => { e.stopPropagation(); studentReturnGear(item.id); }} className="w-full bg-indigo-600 text-white py-2 rounded-lg font-semibold text-sm hover:bg-indigo-700 transition-colors">Mark as Returned</button>
+                              ) : (
+                                <span className="text-center w-full block bg-slate-100 text-slate-500 py-2 rounded-lg font-semibold text-sm">Return Pending Approval</span>
+                              )}
+                            </>
+                          ) : (
+                            <div className="flex justify-between items-center text-xs">
+                              <span className="font-medium text-slate-500">Status:</span>
+                              <span className="font-semibold px-2 py-0.5 rounded bg-emerald-100 text-emerald-700">PURCHASED</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
                       {activeTab === 'my_listings' && (
-                        <div className="flex flex-col gap-2" onClick={(e) => e.stopPropagation()}>
-                          <div className="flex justify-between items-center text-xs">
+                        <div onClick={(e) => e.stopPropagation()}>
+                          <div className="flex justify-between items-center text-xs mb-2">
                             <span className="font-medium text-slate-500">Status:</span>
                             <span className={`font-semibold px-2 py-0.5 rounded ${item.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-700' : item.status === 'SOLD' ? 'bg-slate-200 text-slate-700' : item.status === 'REJECTED' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
                               {item.status}
@@ -456,12 +526,30 @@ export default function App() {
                       )}
 
                       {role === 'MODERATOR' && activeTab === 'manage_gear' && (
-                        <div>
-                          <p className="text-xs mb-2 font-semibold text-slate-500">Status: {item.status}</p>
+                        <div onClick={(e) => e.stopPropagation()} className="pt-2">
+                          <div className="flex justify-between items-center text-xs mb-2">
+                            <span className="font-medium text-slate-500">Status:</span>
+                            <span className={`font-semibold px-2 py-0.5 rounded ${item.status === 'AVAILABLE' ? 'bg-emerald-100 text-emerald-700' : item.status === 'OVERDUE' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
+                              {item.status.replace('_', ' ')}
+                            </span>
+                          </div>
+                          
+                          {item.status !== 'AVAILABLE' && (
+                            <div className="bg-slate-50 p-2 rounded-lg text-xs text-slate-600 border border-slate-100 mb-3">
+                              <strong>Borrower:</strong> {item.buyerEmail}<br/>
+                              <strong>Due:</strong> {item.dueDate ? new Date(item.dueDate).toLocaleDateString() : 'N/A'}
+                            </div>
+                          )}
+
                           {item.status === 'AVAILABLE' ? (
-                            <button onClick={(e) => { e.stopPropagation(); updateItemStatus(item.id, 'BORROWED'); }} className="w-full bg-amber-500 text-white py-2 rounded-lg font-semibold text-sm hover:bg-amber-600 transition-colors">Mark as Borrowed</button>
+                            <button onClick={(e) => { e.stopPropagation(); updateItemStatus(item.id, 'BORROWED'); }} className="w-full bg-slate-200 text-slate-600 py-2 rounded-lg font-semibold text-sm hover:bg-slate-300 transition-colors">Manual Override: Mark Borrowed</button>
                           ) : (
-                            <button onClick={(e) => { e.stopPropagation(); updateItemStatus(item.id, 'AVAILABLE'); }} className="w-full bg-emerald-500 text-white py-2 rounded-lg font-semibold text-sm hover:bg-emerald-600 transition-colors">Mark as Returned</button>
+                            <div className="flex gap-2">
+                              <button onClick={(e) => { e.stopPropagation(); moderatorConfirmReturn(item.id); }} className="flex-1 bg-emerald-500 text-white py-2 rounded-lg font-semibold text-sm hover:bg-emerald-600 transition-colors">Confirm Return</button>
+                              {item.status !== 'OVERDUE' && (
+                                <button onClick={(e) => { e.stopPropagation(); updateItemStatus(item.id, 'OVERDUE'); }} className="flex-1 bg-red-500 text-white py-2 rounded-lg font-semibold text-sm hover:bg-red-600 transition-colors">Mark Overdue</button>
+                              )}
+                            </div>
                           )}
                         </div>
                       )}
@@ -538,7 +626,7 @@ export default function App() {
                         
                         <div className="mt-auto pt-3 border-t border-transparent">
                           <button 
-                            onClick={(e) => { e.stopPropagation(); alert(`Reserved! Show this code at the APU Student Hub Desk: ${item.id.slice(0, 6).toUpperCase()}`); }} 
+                            onClick={(e) => { e.stopPropagation(); reserveGear(item); }} 
                             className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-lg font-semibold text-sm transition-colors mt-auto"
                           >
                             Reserve Gear
