@@ -36,7 +36,6 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedCardId, setExpandedCardId] = useState(null);
   
-  // Filtering states
   const [categoryFilter, setCategoryFilter] = useState('All');
   const [fieldFilter, setFieldFilter] = useState('All');
   const [priceFilter, setPriceFilter] = useState('All');
@@ -164,7 +163,6 @@ export default function App() {
     setExpandedCardId(null);
   };
 
-  // Comprehensive Filtering
   const filteredItems = items.filter(item => {
     const matchesSearch = (item.title?.toLowerCase().includes(searchQuery.toLowerCase()) || 
                            item.description?.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -216,8 +214,17 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
+    <div className="min-h-screen bg-slate-50 relative">
+      
+      {/* Global Blur Backdrop for when any card is expanded */}
+      {expandedCardId && (
+        <div 
+          className="fixed inset-0 z-40 bg-slate-900/10 backdrop-blur-sm transition-all" 
+          onClick={() => setExpandedCardId(null)}
+        />
+      )}
+
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-2 flex-shrink-0">
@@ -294,7 +301,7 @@ export default function App() {
         )}
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
         
         {/* Unified Search & Filters */}
         {['thrift', 'cart', 'purchases', 'my_listings', 'pending', 'manage_gear', 'gear_hub'].includes(activeTab) && (
@@ -313,7 +320,6 @@ export default function App() {
               />
             </div>
 
-            {/* Render Filters only on Thrift Store */}
             {activeTab === 'thrift' && (
               <div className="flex flex-wrap gap-2">
                 <div className="relative flex-grow sm:flex-none">
@@ -375,13 +381,17 @@ export default function App() {
               const isExpanded = expandedCardId === item.id;
               const hasLongDescription = item.description?.length > 90;
               
-              return (
+              const renderCard = (isOverlay) => (
                 <div 
-                  key={item.id} 
-                  onClick={() => setExpandedCardId(isExpanded ? null : item.id)}
-                  className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow flex flex-col cursor-pointer group"
+                  onClick={() => setExpandedCardId(isOverlay ? null : (isExpanded ? null : item.id))}
+                  className={`bg-white rounded-xl border flex flex-col cursor-pointer group transition-all duration-300 ${
+                    isOverlay 
+                      ? 'absolute z-50 top-0 left-0 w-full min-h-full border-emerald-500 shadow-2xl ring-4 ring-emerald-500/20' 
+                      : `border-slate-200 shadow-sm hover:shadow-md relative h-full overflow-hidden ${isExpanded ? 'opacity-0 pointer-events-none' : ''}`
+                  }`}
                 >
-                  <img src={item.imageUrl} className="w-full h-48 object-cover group-hover:opacity-95 transition-opacity" alt={item.title} />
+                  <img src={item.imageUrl} className={`w-full object-cover ${isOverlay ? 'h-64 rounded-t-xl' : 'h-48 group-hover:opacity-95 transition-opacity'}`} alt={item.title} />
+                  
                   <div className="p-4 flex flex-col flex-grow">
                     <div className="flex justify-between items-start mb-2">
                       <h3 className="font-bold text-lg text-slate-900 leading-tight pr-2">{item.title}</h3>
@@ -399,61 +409,73 @@ export default function App() {
                       {item.waistInches && <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded uppercase">Waist {item.waistInches}"</span>}
                     </div>
 
-                    <p className={`text-sm text-slate-600 transition-all duration-300 ${isExpanded ? 'whitespace-pre-wrap mb-1' : 'line-clamp-2 mb-1'}`}>
+                    <p className={`text-sm text-slate-600 ${isOverlay ? 'whitespace-pre-wrap mb-4' : 'line-clamp-2 mb-1'}`}>
                       {item.description}
                     </p>
+                    
                     {hasLongDescription && (
                       <span className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 mb-4 block">
-                        {isExpanded ? 'Show less' : 'Read more'}
+                        {isOverlay ? 'Show less' : 'Read more'}
                       </span>
                     )}
-                    {!hasLongDescription && <div className="mb-4"></div>}
+                    {!hasLongDescription && <div className="mb-4 flex-grow"></div>}
                     
-                    {activeTab === 'cart' && (
-                      <div className="mt-auto flex flex-col gap-2">
-                        <button onClick={(e) => { e.stopPropagation(); alert(`Contact seller to pay & collect: ${item.sellerEmail}`); }} className="w-full bg-emerald-50 text-emerald-700 py-2 rounded-lg font-semibold text-sm hover:bg-emerald-100 transition-colors">Contact Seller</button>
-                        <button onClick={(e) => { e.stopPropagation(); markAsPurchased(item.id); }} className="w-full bg-emerald-600 text-white py-2 rounded-lg font-semibold text-sm hover:bg-emerald-700 transition-colors">Mark as Bought</button>
-                      </div>
-                    )}
-
-                    {activeTab === 'thrift' && (
-                      <button onClick={(e) => { e.stopPropagation(); addToCart(item.id); }} className="mt-auto w-full bg-slate-900 text-white py-2.5 rounded-lg font-semibold text-sm hover:bg-slate-800 transition-colors">Add to Cart</button>
-                    )}
-
-                    {activeTab === 'my_listings' && (
-                      <div className="mt-auto pt-3 border-t border-slate-100 flex flex-col gap-2" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex justify-between items-center text-xs">
-                          <span className="font-medium text-slate-500">Status:</span>
-                          <span className={`font-semibold px-2 py-0.5 rounded ${item.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-700' : item.status === 'SOLD' ? 'bg-slate-200 text-slate-700' : item.status === 'REJECTED' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
-                            {item.status}
-                          </span>
+                    <div className="mt-auto pt-3 border-t border-transparent">
+                      {activeTab === 'cart' && (
+                        <div className="flex flex-col gap-2">
+                          <button onClick={(e) => { e.stopPropagation(); alert(`Contact seller to pay & collect: ${item.sellerEmail}`); }} className="w-full bg-emerald-50 text-emerald-700 py-2 rounded-lg font-semibold text-sm hover:bg-emerald-100 transition-colors">Contact Seller</button>
+                          <button onClick={(e) => { e.stopPropagation(); markAsPurchased(item.id); }} className="w-full bg-emerald-600 text-white py-2 rounded-lg font-semibold text-sm hover:bg-emerald-700 transition-colors">Mark as Bought</button>
                         </div>
-                        {item.status === 'SOLD' && (
-                          <div className="bg-slate-50 p-2 rounded-lg text-xs text-slate-600 border border-slate-100">
-                            <strong>Purchased by:</strong> {item.buyerEmail || 'Campus Student'}
+                      )}
+
+                      {activeTab === 'thrift' && (
+                        <button onClick={(e) => { e.stopPropagation(); addToCart(item.id); }} className="w-full bg-slate-900 text-white py-2.5 rounded-lg font-semibold text-sm hover:bg-slate-800 transition-colors">Add to Cart</button>
+                      )}
+
+                      {activeTab === 'my_listings' && (
+                        <div className="flex flex-col gap-2" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="font-medium text-slate-500">Status:</span>
+                            <span className={`font-semibold px-2 py-0.5 rounded ${item.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-700' : item.status === 'SOLD' ? 'bg-slate-200 text-slate-700' : item.status === 'REJECTED' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
+                              {item.status}
+                            </span>
                           </div>
-                        )}
-                      </div>
-                    )}
+                          {item.status === 'SOLD' && (
+                            <div className="bg-slate-50 p-2 rounded-lg text-xs text-slate-600 border border-slate-100">
+                              <strong>Purchased by:</strong> {item.buyerEmail || 'Campus Student'}
+                            </div>
+                          )}
+                        </div>
+                      )}
 
-                    {role === 'MODERATOR' && activeTab === 'pending' && (
-                      <div className="mt-auto flex gap-2">
-                        <button onClick={(e) => { e.stopPropagation(); updateItemStatus(item.id, 'APPROVED'); }} className="flex-1 bg-emerald-600 text-white py-2 rounded-lg font-semibold text-sm hover:bg-emerald-700 transition-colors">Approve</button>
-                        <button onClick={(e) => { e.stopPropagation(); updateItemStatus(item.id, 'REJECTED'); }} className="flex-1 bg-red-600 text-white py-2 rounded-lg font-semibold text-sm hover:bg-red-700 transition-colors">Reject</button>
-                      </div>
-                    )}
+                      {role === 'MODERATOR' && activeTab === 'pending' && (
+                        <div className="flex gap-2">
+                          <button onClick={(e) => { e.stopPropagation(); updateItemStatus(item.id, 'APPROVED'); }} className="flex-1 bg-emerald-600 text-white py-2 rounded-lg font-semibold text-sm hover:bg-emerald-700 transition-colors">Approve</button>
+                          <button onClick={(e) => { e.stopPropagation(); updateItemStatus(item.id, 'REJECTED'); }} className="flex-1 bg-red-600 text-white py-2 rounded-lg font-semibold text-sm hover:bg-red-700 transition-colors">Reject</button>
+                        </div>
+                      )}
 
-                    {role === 'MODERATOR' && activeTab === 'manage_gear' && (
-                      <div className="mt-auto">
-                        <p className="text-xs mb-2 font-semibold text-slate-500">Status: {item.status}</p>
-                        {item.status === 'AVAILABLE' ? (
-                          <button onClick={(e) => { e.stopPropagation(); updateItemStatus(item.id, 'BORROWED'); }} className="w-full bg-amber-500 text-white py-2 rounded-lg font-semibold text-sm hover:bg-amber-600 transition-colors">Mark as Borrowed</button>
-                        ) : (
-                          <button onClick={(e) => { e.stopPropagation(); updateItemStatus(item.id, 'AVAILABLE'); }} className="w-full bg-emerald-500 text-white py-2 rounded-lg font-semibold text-sm hover:bg-emerald-600 transition-colors">Mark as Returned</button>
-                        )}
-                      </div>
-                    )}
+                      {role === 'MODERATOR' && activeTab === 'manage_gear' && (
+                        <div>
+                          <p className="text-xs mb-2 font-semibold text-slate-500">Status: {item.status}</p>
+                          {item.status === 'AVAILABLE' ? (
+                            <button onClick={(e) => { e.stopPropagation(); updateItemStatus(item.id, 'BORROWED'); }} className="w-full bg-amber-500 text-white py-2 rounded-lg font-semibold text-sm hover:bg-amber-600 transition-colors">Mark as Borrowed</button>
+                          ) : (
+                            <button onClick={(e) => { e.stopPropagation(); updateItemStatus(item.id, 'AVAILABLE'); }} className="w-full bg-emerald-500 text-white py-2 rounded-lg font-semibold text-sm hover:bg-emerald-600 transition-colors">Mark as Returned</button>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
+                </div>
+              );
+              
+              return (
+                <div key={item.id} className="relative h-full">
+                  {/* Invisible placeholder to preserve grid size + clickable overlay trigger */}
+                  {renderCard(false)}
+                  {/* Pop-out overlay card */}
+                  {isExpanded && renderCard(true)}
                 </div>
               );
             })}
@@ -471,56 +493,74 @@ export default function App() {
                   const isExpanded = expandedCardId === item.id;
                   const hasLongDescription = item.description?.length > 90;
 
-                  return (
+                  const renderGearCard = (isOverlay) => (
                     <div 
-                      key={item.id} 
-                      id={`gear-${item.id}`}
-                      onClick={() => setExpandedCardId(isExpanded ? null : item.id)}
-                      className={`bg-white rounded-xl border p-4 transition-all duration-300 relative flex flex-col cursor-pointer group ${
-                        isHighlighted 
-                          ? 'border-emerald-500 ring-4 ring-emerald-100 shadow-xl scale-[1.02] bg-emerald-50/30' 
-                          : 'border-slate-200 shadow-sm hover:shadow-md'
+                      id={!isOverlay ? `gear-${item.id}` : undefined}
+                      onClick={() => setExpandedCardId(isOverlay ? null : (isExpanded ? null : item.id))}
+                      className={`bg-white rounded-xl border flex flex-col cursor-pointer group transition-all duration-300 ${
+                        isOverlay 
+                          ? 'absolute z-50 top-0 left-0 w-full min-h-full border-emerald-500 shadow-2xl ring-4 ring-emerald-500/30' 
+                          : `relative h-full overflow-hidden ${isExpanded ? 'opacity-0 pointer-events-none' : (isHighlighted ? 'border-emerald-500 ring-4 ring-emerald-100 shadow-xl bg-emerald-50/30 scale-[1.02]' : 'border-slate-200 shadow-sm hover:shadow-md')}`
                       }`}
                     >
-                      {isHighlighted && (
+                      {/* Highlight Badge */}
+                      {isHighlighted && !isOverlay && (
                         <span className="absolute -top-3 left-4 bg-emerald-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow flex items-center gap-1 z-10 animate-bounce">
                           <Sparkles className="w-3.5 h-3.5" /> Recommended Piece
                         </span>
                       )}
-                      
-                      <img src={item.imageUrl} className="w-full h-40 object-cover rounded-lg mb-4 group-hover:opacity-95 transition-opacity" alt={item.title} />
-                      <h3 className="font-bold text-lg text-slate-900 leading-tight">{item.title}</h3>
-                      
-                      <div className="flex flex-wrap gap-1 my-2">
-                         {item.condition && <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded uppercase">{item.condition}</span>}
-                         {item.size && <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded uppercase">Size {item.size}</span>}
-                         {item.chestInches && <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded uppercase">Chest {item.chestInches}"</span>}
-                         {item.waistInches && <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded uppercase">Waist {item.waistInches}"</span>}
-                      </div>
-
-                      <p className={`text-sm text-slate-600 transition-all duration-300 ${isExpanded ? 'whitespace-pre-wrap mb-1' : 'line-clamp-2 mb-1'}`}>
-                        {item.description}
-                      </p>
-                      {hasLongDescription && (
-                        <span className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 mb-4 block">
-                          {isExpanded ? 'Show less' : 'Read more'}
+                      {isHighlighted && isOverlay && (
+                        <span className="absolute -top-3 left-4 bg-emerald-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow flex items-center gap-1 z-10">
+                          <Sparkles className="w-3.5 h-3.5" /> Recommended Piece
                         </span>
                       )}
-                      {!hasLongDescription && <div className="mb-4 flex-grow"></div>}
                       
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); alert(`Reserved! Show this code at the APU Student Hub Desk: ${item.id.slice(0, 6).toUpperCase()}`); }} 
-                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-lg font-semibold text-sm transition-colors mt-auto"
-                      >
-                        Reserve Gear
-                      </button>
+                      <img src={item.imageUrl} className={`w-full object-cover ${isOverlay ? 'h-64 rounded-t-xl' : 'h-40 group-hover:opacity-95 transition-opacity'}`} alt={item.title} />
+                      
+                      <div className="p-4 flex flex-col flex-grow">
+                        <h3 className="font-bold text-lg text-slate-900 leading-tight">{item.title}</h3>
+                        
+                        <div className="flex flex-wrap gap-1 my-2">
+                           {item.condition && <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded uppercase">{item.condition}</span>}
+                           {item.size && <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded uppercase">Size {item.size}</span>}
+                           {item.chestInches && <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded uppercase">Chest {item.chestInches}"</span>}
+                           {item.waistInches && <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded uppercase">Waist {item.waistInches}"</span>}
+                        </div>
+
+                        <p className={`text-sm text-slate-600 ${isOverlay ? 'whitespace-pre-wrap mb-4' : 'line-clamp-2 mb-1'}`}>
+                          {item.description}
+                        </p>
+                        
+                        {hasLongDescription && (
+                          <span className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 mb-4 block">
+                            {isOverlay ? 'Show less' : 'Read more'}
+                          </span>
+                        )}
+                        {!hasLongDescription && <div className="mb-4 flex-grow"></div>}
+                        
+                        <div className="mt-auto pt-3 border-t border-transparent">
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); alert(`Reserved! Show this code at the APU Student Hub Desk: ${item.id.slice(0, 6).toUpperCase()}`); }} 
+                            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-lg font-semibold text-sm transition-colors mt-auto"
+                          >
+                            Reserve Gear
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+
+                  return (
+                    <div key={item.id} className="relative h-full">
+                      {renderGearCard(false)}
+                      {isExpanded && renderGearCard(true)}
                     </div>
                   );
                 })}
               </div>
             </div>
             
-            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm h-fit sticky top-24">
+            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm h-fit sticky top-24 z-20">
               <div className="flex items-center gap-2 mb-3 text-emerald-600">
                 <Sparkles className="w-6 h-6" />
                 <h3 className="font-bold text-lg text-slate-900">AI Fit Advisor</h3>
