@@ -978,7 +978,7 @@ export default function App() {
               </div>
               <p className="text-xs text-slate-500 mb-4">
                 State your measurements or full outfit requests (blazers,
-                trousers, or combinations). Gemini will find and highlight all
+                trousers, or combinations). AI Fit Advisor will find and highlight all
                 matching cards simultaneously.
               </p>
               <AIFitAssistant
@@ -1255,7 +1255,7 @@ function AIFitAssistant({ items, onHighlightItems }) {
         "explanation": "Short summary of why these pieces fit and look great together."
       }`;
 
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash" });
       const result = await model.generateContent(fullPrompt);
 
       const text = result.response
