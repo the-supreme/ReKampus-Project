@@ -219,7 +219,7 @@ export default function App() {
       {/* Global Blur Backdrop for when any card is expanded */}
       {expandedCardId && (
         <div 
-          className="fixed inset-0 z-40 bg-slate-900/10 backdrop-blur-sm transition-all" 
+          className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-sm transition-all" 
           onClick={() => setExpandedCardId(null)}
         />
       )}
@@ -386,7 +386,7 @@ export default function App() {
                   onClick={() => setExpandedCardId(isOverlay ? null : (isExpanded ? null : item.id))}
                   className={`bg-white rounded-xl border flex flex-col cursor-pointer group transition-all duration-300 ${
                     isOverlay 
-                      ? 'absolute z-50 top-0 left-0 w-full min-h-full border-emerald-500 shadow-2xl ring-4 ring-emerald-500/20' 
+                      ? 'absolute top-0 left-0 w-full min-h-full border-emerald-500 shadow-2xl ring-4 ring-emerald-500/20' 
                       : `border-slate-200 shadow-sm hover:shadow-md relative h-full overflow-hidden ${isExpanded ? 'opacity-0 pointer-events-none' : ''}`
                   }`}
                 >
@@ -470,11 +470,10 @@ export default function App() {
                 </div>
               );
               
+              // THIS IS THE FIX: The expanded item gets z-50 so it jumps above the z-40 blur layer
               return (
-                <div key={item.id} className="relative h-full">
-                  {/* Invisible placeholder to preserve grid size + clickable overlay trigger */}
+                <div key={item.id} className={`relative h-full ${isExpanded ? 'z-50' : 'z-0'}`}>
                   {renderCard(false)}
-                  {/* Pop-out overlay card */}
                   {isExpanded && renderCard(true)}
                 </div>
               );
@@ -499,7 +498,7 @@ export default function App() {
                       onClick={() => setExpandedCardId(isOverlay ? null : (isExpanded ? null : item.id))}
                       className={`bg-white rounded-xl border flex flex-col cursor-pointer group transition-all duration-300 ${
                         isOverlay 
-                          ? 'absolute z-50 top-0 left-0 w-full min-h-full border-emerald-500 shadow-2xl ring-4 ring-emerald-500/30' 
+                          ? 'absolute top-0 left-0 w-full min-h-full border-emerald-500 shadow-2xl ring-4 ring-emerald-500/30' 
                           : `relative h-full overflow-hidden ${isExpanded ? 'opacity-0 pointer-events-none' : (isHighlighted ? 'border-emerald-500 ring-4 ring-emerald-100 shadow-xl bg-emerald-50/30 scale-[1.02]' : 'border-slate-200 shadow-sm hover:shadow-md')}`
                       }`}
                     >
@@ -550,8 +549,9 @@ export default function App() {
                     </div>
                   );
 
+                  // FIX: Expanded item gets z-50 to break through the blur
                   return (
-                    <div key={item.id} className="relative h-full">
+                    <div key={item.id} className={`relative h-full ${isExpanded ? 'z-50' : 'z-0'}`}>
                       {renderGearCard(false)}
                       {isExpanded && renderGearCard(true)}
                     </div>
