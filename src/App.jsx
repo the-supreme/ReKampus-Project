@@ -309,7 +309,7 @@ export default function App() {
   if (!user || !role) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 px-4">
-        <img src={logo} alt="ReKampus Logo" className="w-20 h-20 object-contain mb-4" />
+        <img src={logo} alt="ReKampus Logo" className="w-30 h-30 object-contain mb-4" />
         <h1 className="text-4xl font-bold mb-2 text-slate-800 text-center tracking-tight">
           ReKampus
         </h1>
@@ -351,7 +351,7 @@ export default function App() {
               <img
                 src={logo}
                 alt="ReKampus Logo"
-                className="w-8 h-8 object-contain"
+                className="w-15 h-15 object-contain"
               />
               <span className="font-bold text-xl text-slate-900 tracking-tight">
                 ReKampus{" "}
